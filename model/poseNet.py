@@ -1,8 +1,3 @@
-import os
-
-import numpy as np
-from scipy.misc import imread
-import h5py
 
 import torch
 from torch import nn
@@ -23,7 +18,7 @@ class poseNet(LightningModule):
     def __init__(self, nstack, inp_dim, oup_dim, batch_size,bn=False, **kwargs):
         super(poseNet, self).__init__()
         self.hparams.batch_size = batch_size
-        self.hparams.num_workers = 2
+        self.hparams.num_workers = 8
         self.this_config = config.__config__
         self.nstack = nstack
         self.pre = nn.Sequential(
@@ -60,7 +55,7 @@ class poseNet(LightningModule):
             Conv(oup_dim, inp_dim, 1, bn=False, relu=False) for num in range(nstack-1)
         ])
 
-        self.calc_loss = Calc_loss()
+        self.calc_loss = Calc_loss(nstack)
 
     def forward(self, imgs):
         x = imgs.permute(0, 3, 1, 2) #x in order(0,3,1,2)
@@ -68,8 +63,8 @@ class poseNet(LightningModule):
         all_pred_heatmaps = []  # nstack*16*size*size
         for i in range(self.nstack):
             hg = self.hgs[i](input)
-            afterHg = self.afterHg(hg)
-            pred_heatmaps = self.pred_heatmaps(afterHg) # 16*size*size
+            afterHg = self.afterHg[i](hg)
+            pred_heatmaps = self.pred_heatmaps[i](afterHg) # 16*size*size
             all_pred_heatmaps.append(pred_heatmaps)
             if i < self.nstack - 1:
                 input += self.module_outs[i](afterHg) + self.merge_pred_heatmaps[i](pred_heatmaps)

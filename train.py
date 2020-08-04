@@ -9,7 +9,7 @@ batch_size = this_config['batch_size']
 net = poseNet.poseNet(nstack, inp_dim, oup_dim, batch_size)
 
 
-trainer = Trainer(default_root_dir='./checkpoint')
+trainer = Trainer(gpus=1,default_root_dir='./checkpoint/test_hg1_01')
 trainer.fit(net)
 
 

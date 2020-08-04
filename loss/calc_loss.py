@@ -3,9 +3,10 @@ from .loss import HeatmapLoss
 
 class Calc_loss(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, nstack):
         super(Calc_loss, self).__init__()
         self.heatmapLoss = HeatmapLoss()
+        self.nstack = nstack
 
     def forward(self, combined_heatmap_preds, heatmaps_gt):
         combined_loss = []
