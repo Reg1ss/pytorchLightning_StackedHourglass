@@ -10,7 +10,7 @@ batch_size = this_config['batch_size']
 net = poseNet.poseNet(nstack, inp_dim, oup_dim, batch_size)
 
 early_stopping = EarlyStopping('val_loss')
-trainer = Trainer(default_root_dir='./checkpoint/test_hg1_02', early_stop_callback=early_stopping)
+trainer = Trainer(gpus=1, default_root_dir='./checkpoint/test_hg1_02', early_stop_callback=early_stopping)
 trainer.fit(net)
 
 
