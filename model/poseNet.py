@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision import transforms
+import pytorch_lightning as pl
 from pytorch_lightning.core.lightning import LightningModule
 
 from model.layers import Conv, Hourglass, Pool, Residual
@@ -80,9 +81,11 @@ class poseNet(LightningModule):
         batch_imgs, heatmaps_gt = batch   #[batch_size, channel, size, size] [batch_size, n_joints, size, size]
         combined_heatmap_preds = self(batch_imgs)
         #calculate loss
-        loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
-        tensorboard_logs = {'train_loss': loss}
-        return {'loss': loss, 'log': tensorboard_logs}
+        train_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
+        train_result = pl.TrainResult(minimize=train_loss) #minimize: what metrics to do bp learning
+        train_result.log('train_loss', train_loss, on_step=False, on_epoch=True, prog_bar=True)
+        return  train_result
+
 
     def validation_step(self, batch, batch_idx):
         """
@@ -96,8 +99,8 @@ class poseNet(LightningModule):
         #self.on_save_checkpoint()
 
         val_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
-        tensorboard_logs = {'train_loss': val_loss}
-        return {'val_loss': val_loss, 'val_log': tensorboard_logs}
+        val_result = pl.EvalResult(early_stop_on=val_loss, checkpoint_on=val_loss)
+        val_result.log('val_loss', val_loss, on_step=False, on_epoch=True, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         batch_imgs, heatmaps_gt = batch
@@ -107,6 +110,8 @@ class poseNet(LightningModule):
         tensorboard_logs = {'train_loss': test_loss}
         return {'test_loss': test_loss, 'test_log': tensorboard_logs}
 
+    '''
+    #If don't use EvalResult 
     def validation_epoch_end(self, outputs):
         """
         Called every epoch
@@ -116,6 +121,7 @@ class poseNet(LightningModule):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         tensorboard_logs = {'val_loss': avg_loss}
         return {'val_loss': avg_loss, 'log': tensorboard_logs}
+    '''
 
     def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
