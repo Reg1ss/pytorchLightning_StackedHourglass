@@ -84,7 +84,7 @@ class poseNet(LightningModule):
         train_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
         train_result = pl.TrainResult(minimize=train_loss) #minimize: what metrics to do bp learning
         train_result.log('train_loss', train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        return  train_result
+        return train_result
 
 
     def validation_step(self, batch, batch_idx):
@@ -101,6 +101,7 @@ class poseNet(LightningModule):
         val_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
         val_result = pl.EvalResult(early_stop_on=val_loss, checkpoint_on=val_loss)
         val_result.log('val_loss', val_loss, on_step=False, on_epoch=True, prog_bar=True)
+        return val_result
 
     def test_step(self, batch, batch_idx):
         batch_imgs, heatmaps_gt = batch
