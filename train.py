@@ -1,5 +1,6 @@
 from pytorch_lightning import Trainer
 from model import poseNet, config
+from pytorch_lightning.callbacks import EarlyStopping
 
 this_config = config.__config__
 nstack = this_config['nstack']
@@ -8,8 +9,8 @@ oup_dim = this_config['oup_dim']
 batch_size = this_config['batch_size']
 net = poseNet.poseNet(nstack, inp_dim, oup_dim, batch_size)
 
-
-trainer = Trainer(gpus=1,default_root_dir='./checkpoint/test_hg1_01')
+early_stopping = EarlyStopping('val_loss')
+trainer = Trainer(default_root_dir='./checkpoint/test_hg1_02', early_stop_callback=early_stopping)
 trainer.fit(net)
 
 

@@ -86,6 +86,7 @@ class poseNet(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         """
+        Called every batch
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
@@ -108,6 +109,7 @@ class poseNet(LightningModule):
 
     def validation_epoch_end(self, outputs):
         """
+        Called every epoch
         Called at the end of validation to aggregate outputs.
         :param outputs: list of individual outputs of each validation step.
         """
