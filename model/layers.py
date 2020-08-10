@@ -1,6 +1,6 @@
 from torch import nn
 
-Pool = nn.MaxPool2d()
+Pool = nn.MaxPool2d
 
 # class Merge(nn.Module):
 #     def __init__(self, x_dim, y_dim):
