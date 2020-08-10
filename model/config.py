@@ -11,5 +11,5 @@ __config__ = {
     'lr': 1e-3,
     'decay_iters': 100000,
     'decay_lr': 2e-4,
-
+    'threshold':0.5
 }

@@ -86,11 +86,11 @@ class MPIIDataLoader(torch.utils.data.Dataset):
         aug_scale = np.random.random() * (1.25 - 0.75) + 0.75
         scale *= aug_scale
 
-        mat_mask = imgProcessing.get_transform(center, scale, (self.output_res, self.output_res), aug_rot)[:2]
+        mat_mask = imgProcessing.get_transform(center, scale, (self.output_res, self.output_res), aug_rot)[:2]  #Generate transformation matrix
 
         mat = imgProcessing.get_transform(center, scale, (self.input_res, self.input_res), aug_rot)[:2]
-        inp = cv2.warpAffine(cropped, mat, (self.input_res, self.input_res)).astype(np.float32) / 255
-        keypoints[:, :, 0:2] = imgProcessing.kpt_affine(keypoints[:, :, 0:2], mat_mask)
+        inp = cv2.warpAffine(cropped, mat, (self.input_res, self.input_res)).astype(np.float32) / 255 #cv2.WarpAffine: applying affine transformation
+        keypoints[:, :, 0:2] = imgProcessing.kpt_affine(keypoints[:, :, 0:2], mat_mask) #keypoints affine to output_res
         if np.random.randint(2) == 0:
             inp = self.preprocess(inp)
             inp = inp[:, ::-1]

@@ -1,6 +1,6 @@
 from torch import nn
 
-Pool = nn.MaxPool2d
+Pool = nn.MaxPool2d()
 
 # class Merge(nn.Module):
 #     def __init__(self, x_dim, y_dim):
@@ -98,7 +98,7 @@ class Hourglass(nn.Module):
         #lower connection
         pool = self.pool(x)
         bottom_up_res = self.bottom_up_res(pool)
-        recursive = self.recursive(bottom_up_res)
+        recursive = self.recursive(bottom_up_res)   #In hg, res includs: 64, 32, 16, 8 if input_res=256
         top_down_res = self.top_down_res(recursive)
         up_sample  = self.up_sample(top_down_res)
         return skip_f + up_sample

@@ -107,7 +107,7 @@ def get_path(idx):
 
 def get_kps(idx):
     __, part, visible, __, __, __ = mpii.getAnnots(idx)
-    kp2 = np.insert(part, 2, visible, axis=1)
+    kp2 = np.insert(part, 2, visible, axis=1)   #[16,3]
     kps = np.zeros((1, 16, 3))
     kps[0] = kp2
     return kps
