@@ -63,6 +63,13 @@ def inference(img, model, config, c, s):
     return post_process(det, mat_t, 'valid', c, s, res)
 
 
+def do_inference(img, model, c, s):
+    ans = inference(img, model, c, s)
+    if len(ans) > 0:
+        ans = ans[:, :, :3]
+    return {'keypoints': ans}
+
+
 def mpii_eval(preds, gt_kps, normalizing, num_train, bound=0.5):
     """
     Use PCK with threshold of .5 of normalized distance (presumably head size)
@@ -142,3 +149,4 @@ def mpii_eval(preds, gt_kps, normalizing, num_train, bound=0.5):
             print('Tra PCK @,', bound, ',', key, ':', round(correct_train[k][key] / max(count_train[k][key], 1), 3),
                   ', count:', count_train[k][key])
         print('\n')
+
