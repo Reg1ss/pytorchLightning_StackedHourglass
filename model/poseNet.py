@@ -118,13 +118,13 @@ class poseNet(LightningModule):
     def test_step(self, batch, batch_idx):
         batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch    #[batch_size, size, size, channel]
         combined_heatmap_preds = self(batch_imgs)
-        batch_imgs_inv_list = []
-        for i in range(self.hparams.batch_size):
-            img = batch_imgs[i].numpy()
-            img_inv = img[:,::-1]
-            batch_imgs_inv_list.append(torch.from_numpy(img_inv))
-        batch_imgs_inv = torch.stack(batch_imgs_inv_list,dim=0)
-        combined_heatmap_preds_inv = self(batch_imgs_inv)
+        # batch_imgs_inv_list = []
+        # for i in range(self.hparams.batch_size):
+        #     img = batch_imgs[i].numpy()
+        #     img_inv = img[:,::-1]
+        #     batch_imgs_inv_list.append(torch.from_numpy(img_inv))
+        # batch_imgs_inv = torch.stack(batch_imgs_inv_list,dim=0)
+        # combined_heatmap_preds_inv = self(batch_imgs_inv)
         for i in range(self.hparams.batch_size):
             img = batch_imgs[i]
             gt_kps = batch_gt_kps[i]
@@ -132,9 +132,10 @@ class poseNet(LightningModule):
             scale = batch_scale[i]
             norm = batch_norm[i]
 
-            tmp1 = combined_heatmap_preds[i]
-            tmp2 = combined_heatmap_preds_inv[i]
-            pred = do_inference(img, tmp1, tmp2, center, scale)
+            model = self
+            # tmp1 = combined_heatmap_preds[i]
+            # tmp2 = combined_heatmap_preds_inv[i]
+            pred = do_inference(img, model, center, scale)
 
             self.all_gt_kps.append(gt_kps)
             self.all_preds.append(pred)
