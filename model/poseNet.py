@@ -62,6 +62,9 @@ class poseNet(LightningModule):
 
         self.calc_loss = Calc_loss(self.nstack)
 
+        #for test phase
+        self.all_preds = []
+
     def forward(self, imgs):
         x = imgs.permute(0, 3, 1, 2) ##swap order [batch_size,channel,size,size]
         input = self.pre(x)
@@ -110,7 +113,16 @@ class poseNet(LightningModule):
         return val_result
 
     def test_step(self, batch, batch_idx):
-        batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch
+        batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch    #[batch_size, size, size, channel]
+        for i in range(self.hparams.batch_size):
+            img = batch_imgs[i]
+            gt_kps = batch_gt_kps[i]
+            center = batch_center[i]
+            scale = batch_scale[i]
+            norm = batch_norm[i]
+
+
+        print(batch_imgs.shape)
         combined_heatmap_preds = self(batch_imgs)
 
         final_heatmap_preds = combined_heatmap_preds[:,self.nstack-1,:,:,:] #[batch_size, n_joints, size, size]
