@@ -6,11 +6,13 @@ import numpy as np
 import torch.utils.data
 from . import imgProcessing
 from . import MPII as mpii
+from .MPII_dataLoader import  GenerateHeatmap
 
 class MPIIDataLoader(torch.utils.data.Dataset):
     def __init__(self, config, mpii, index):
         self.input_res = config['input_res']
         self.output_res = config['output_res']
+        self.generateHeatmap = GenerateHeatmap(self.output_res, config['num_parts'])
         self.mpii = mpii
         self.index = index
 
