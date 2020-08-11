@@ -10,7 +10,7 @@ from pytorch_lightning.core.lightning import LightningModule
 
 from model.layers import Conv, Hourglass, Pool, Residual
 from loss.calc_loss import Calc_loss
-from data import MPII_dataLoader
+from data import MPII_dataLoader, MPII_test_dataLoader
 from model import config
 
 
@@ -108,7 +108,7 @@ class poseNet(LightningModule):
         return val_result
 
     def test_step(self, batch, batch_idx):
-        batch_imgs, heatmaps_gt = batch
+        batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch
         combined_heatmap_preds = self(batch_imgs)
 
         final_heatmap_preds = combined_heatmap_preds[:,self.nstack-1,:,:,:] #[batch_size, n_joints, size, size]
@@ -147,6 +147,7 @@ class poseNet(LightningModule):
     def setup(self, stage):
         #split train and valid dataset
         self.mpii_train, self.mpii_valid = MPII_dataLoader.init(self.this_config)
+        self.mpii_test = MPII_test_dataLoader.init(self.this_config)
 
 
     def train_dataloader(self):
@@ -156,4 +157,4 @@ class poseNet(LightningModule):
         return DataLoader(self.mpii_valid, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.mpii_valid, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_test, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
