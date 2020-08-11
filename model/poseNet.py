@@ -16,11 +16,13 @@ from model import config
 
 class poseNet(LightningModule):
 
-    def __init__(self, inp_dim, oup_dim, bn=False, **kwargs):
+    def __init__(self, bn=False, **kwargs):
         super(poseNet, self).__init__()
 
         self.hparams.num_workers = 8    #workers number
         self.this_config = config.__config__
+        inp_dim = self.this_config['inp_dim']
+        oup_dim = self.this_config['oup_dim']
         self.hparams.batch_size = self.this_config['batch_size']
         self.nstack = self.this_config['nstack']
         self.threshold = self.this_config['threshold']
