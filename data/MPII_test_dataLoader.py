@@ -7,44 +7,10 @@ import torch.utils.data
 from . import imgProcessing
 from . import MPII as mpii
 
-class GenerateHeatmap():
-    def __init__(self, output_res, num_parts):
-        self.output_res = output_res
-        self.num_parts = num_parts
-        sigma = self.output_res / 64
-        self.sigma = sigma
-        size = 6 * sigma + 3
-        x = np.arange(0, size, 1, float)
-        y = x[:, np.newaxis]
-        x0, y0 = 3 * sigma + 1, 3 * sigma + 1
-        self.g = np.exp(- ((x - x0) ** 2 + (y - y0) ** 2) / (2 * sigma ** 2))
-
-    def __call__(self, keypoints):
-        heatmaps = np.zeros(shape=(self.num_parts, self.output_res, self.output_res), dtype=np.float32)
-        sigma = self.sigma
-        for p in keypoints:
-            for idx, pt in enumerate(p):
-                if pt[0] > 0:
-                    x, y = int(pt[0]), int(pt[1])
-                    if x < 0 or y < 0 or x >= self.output_res or y >= self.output_res:
-                        continue
-                    ul = int(x - 3 * sigma - 1), int(y - 3 * sigma - 1)
-                    br = int(x + 3 * sigma + 2), int(y + 3 * sigma + 2)
-
-                    c, d = max(0, -ul[0]), min(br[0], self.output_res) - ul[0]
-                    a, b = max(0, -ul[1]), min(br[1], self.output_res) - ul[1]
-
-                    cc, dd = max(0, ul[0]), min(br[0], self.output_res)
-                    aa, bb = max(0, ul[1]), min(br[1], self.output_res)
-                    heatmaps[idx, aa:bb, cc:dd] = np.maximum(heatmaps[idx, aa:bb, cc:dd], self.g[a:b, c:d])
-        return heatmaps
-
-
 class MPIIDataLoader(torch.utils.data.Dataset):
     def __init__(self, config, mpii, index):
         self.input_res = config['input_res']
         self.output_res = config['output_res']
-        self.generateHeatmap = GenerateHeatmap(self.output_res, config['num_parts'])
         self.mpii = mpii
         self.index = index
 
@@ -107,11 +73,18 @@ class MPIIDataLoader(torch.utils.data.Dataset):
                 keypoints[0, i, 1] = 0
                 orig_keypoints[0, i, 0] = 0
                 orig_keypoints[0, i, 1] = 0
-
-        #generate heatmaps
         heatmaps = self.generateHeatmap(keypoints)
 
-        return inp.astype(np.float32), heatmaps.astype(np.float32)
+        # get kps
+        kps = mpii.get_kps(idx)
+        #get center
+        center = mpii.get_center(idx)
+        #get scale
+        scale = mpii.get_scale(idx)
+        #get normalization
+        norm = mpii.get_normalized(idx)
+        return inp.astype(np.float32), kps.astype(np.float32), heatmaps.astype(np.float32), \
+               center.astype(np.float32), scale.astype(np.float32), norm.astype(np.float32)
 
     def preprocess(self, data):
         # random hue and saturation
@@ -140,29 +113,9 @@ def init(config):
     sys.path.append(current_path)
     mpii.init()
 
-    train_index, valid_index = mpii.setup_val_split()
+    _, test_index = mpii.setup_val_split()
     #dataset = {key: MPIIDataLoader(config, mpii, index) for key, index in zip(['train', 'valid'], [train_index, valid_index])}
 
-    trainset = MPIIDataLoader(config, mpii, train_index)
-    validset = MPIIDataLoader(config, mpii, valid_index)
+    testset = MPIIDataLoader(config, mpii, test_index)
 
-    return  trainset, validset
-    #use_data_loader = config['train']['use_data_loader']
-
-    # loaders = {}
-    # for key in dataset:
-    #     loaders[key] = torch.utils.data.DataLoader(dataset[key], batch_size=batchsize, shuffle=True,
-    #                                                num_workers=config['train']['num_workers'], pin_memory=False)
-
-    # def gen(phase):
-    #     #batchsize = config['train']['batchsize']
-    #     batchnum = config['train']['{}_iters'.format(phase)]
-    #     loader = loaders[phase].__iter__()  #== enumerate(loaders[phase], 0):
-    #     for i in range(batchnum):
-    #         imgs, heatmaps = next(loader)
-    #         yield {  # yield keyword make a function become a generator
-    #             'imgs': imgs,  # cropped and augmented
-    #             'heatmaps': heatmaps,  # based on keypoints. 0 if not in img for joint
-    #         }
-    #
-    # return lambda key: gen(key)
+    return testset
