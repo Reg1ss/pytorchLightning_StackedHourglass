@@ -118,7 +118,13 @@ class poseNet(LightningModule):
     def test_step(self, batch, batch_idx):
         batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch    #[batch_size, size, size, channel]
         combined_heatmap_preds = self(batch_imgs)
-        combined_heatmap_preds_inv = self(batch_imgs[:,:,::-1])
+        batch_imgs_inv_list = []
+        for i in range(self.hparams.batch_size):
+            img = batch_imgs[i].numpy()
+            img_inv = img[:,::-1]
+            batch_imgs_inv_list.append(torch.from_numpy(img_inv))
+        batch_imgs_inv = torch.stack(batch_imgs_inv_list,dim=0)
+        combined_heatmap_preds_inv = self(batch_imgs_inv)
         for i in range(self.hparams.batch_size):
             img = batch_imgs[i]
             gt_kps = batch_gt_kps[i]
