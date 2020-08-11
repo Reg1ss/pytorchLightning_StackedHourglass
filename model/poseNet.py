@@ -117,19 +117,24 @@ class poseNet(LightningModule):
 
     def test_step(self, batch, batch_idx):
         batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch    #[batch_size, size, size, channel]
+        combined_heatmap_preds = self(batch_imgs)
+        combined_heatmap_preds_inv = self(batch_imgs[:,:,::-1])
         for i in range(self.hparams.batch_size):
             img = batch_imgs[i]
             gt_kps = batch_gt_kps[i]
             center = batch_center[i]
             scale = batch_scale[i]
             norm = batch_norm[i]
-            pred = do_inference(img, self, center, scale)
+
+            tmp1 = combined_heatmap_preds[i]
+            tmp2 = combined_heatmap_preds_inv[i]
+            pred = do_inference(img, tmp1, tmp2, center, scale)
 
             self.all_gt_kps.append(gt_kps)
             self.all_preds.append(pred)
             self.all_norm.append(norm)
 
-        combined_heatmap_preds = self(batch_imgs)
+
         test_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
 
         tensorboard_logs = {'train_loss': test_loss}
