@@ -12,6 +12,7 @@ from model.layers import Conv, Hourglass, Pool, Residual
 from loss.calc_loss import Calc_loss
 from data import MPII_dataLoader, MPII_test_dataLoader
 from model import config
+from utils.inference import do_inference, mpii_eval
 
 
 class poseNet(LightningModule):
@@ -63,7 +64,9 @@ class poseNet(LightningModule):
         self.calc_loss = Calc_loss(self.nstack)
 
         #for test phase
+        self.all_gt_kps = []
         self.all_preds = []
+        self.all_norm = []
 
     def forward(self, imgs):
         x = imgs.permute(0, 3, 1, 2) ##swap order [batch_size,channel,size,size]
@@ -120,15 +123,15 @@ class poseNet(LightningModule):
             center = batch_center[i]
             scale = batch_scale[i]
             norm = batch_norm[i]
+            pred = do_inference(img, self, center, scale)
 
+            self.all_gt_kps.append(gt_kps)
+            self.all_preds.append(pred)
+            self.all_norm.append(norm)
 
-        print(batch_imgs.shape)
         combined_heatmap_preds = self(batch_imgs)
-
-        final_heatmap_preds = combined_heatmap_preds[:,self.nstack-1,:,:,:] #[batch_size, n_joints, size, size]
-
-
         test_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
+
         tensorboard_logs = {'train_loss': test_loss}
         return {'test_loss': test_loss, 'test_log': tensorboard_logs}
 
@@ -146,9 +149,12 @@ class poseNet(LightningModule):
     '''
 
     def test_epoch_end(self, outputs):
-        avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
-        tensorboard_logs = {'test_loss': avg_loss}
-        return {'avg_test_loss': avg_loss, 'log': tensorboard_logs}
+        # avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
+        # tensorboard_logs = {'test_loss': avg_loss}
+        # return {'avg_test_loss': avg_loss, 'log': tensorboard_logs}
+
+        mpii_eval(self.all_preds, self.all_gt_kps, self.all_norm, self.this_config['train_num_eval'])
+        return 0
 
     def configure_optimizers(self):
         return [torch.optim.Adam(self.parameters(), lr=self.this_config['lr'])]
