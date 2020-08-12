@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch import nn
 
 def match_format(dic):
     loc = dic['loc_k'][0,:,0,:]
@@ -12,7 +13,6 @@ def match_format(dic):
 
 class HeatmapParser:
     def __init__(self):
-        from torch import nn
         self.pool = nn.MaxPool2d(3, 1, 1)  #kernel_size, stride, padding
 
     def nms(self, det):

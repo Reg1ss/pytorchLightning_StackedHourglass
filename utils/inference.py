@@ -48,7 +48,7 @@ def inference(img, model, config, c, s):
         }
 
     tmp1 = array2dict(model(inp))  # inp: [batch_size, channel(3), size, size]
-    tmp2 = array2dict(model(torch.flip(inp,[1])))
+    tmp2 = array2dict(model(torch.flip(inp,[-2])))
     print('inp', inp)
     print('inpi', torch.flip(inp, [-2]))
     # tmp1 = array2dict(tmp1)
