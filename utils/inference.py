@@ -28,7 +28,7 @@ def post_process(det, mat_, trainval, c=None, s=None, resolution=None):
     return preds
 
 
-def inference(img, model, config, c, s):
+def inference(img, tmp1, tmp2, config, c, s):
     """
     forward pass at test time
     calls post_process to post process results
@@ -47,8 +47,11 @@ def inference(img, model, config, c, s):
             'det': tmp[0][:, :, :16],  # [batch_size, nstack, n_joints, size, size]
         }
 
-    tmp1 = array2dict(model([inp]))  # inp: [batch_size, channel(3), size, size]
-    tmp2 = array2dict(model([inp[:, ::-1]]))
+    # tmp1 = array2dict(model([inp]))  # inp: [batch_size, channel(3), size, size]
+    # tmp2 = array2dict(model([inp[:, ::-1]]))
+
+    tmp1 = array2dict(tmp1)
+    tmp2 = array2dict(tmp2)
 
     tmp = {}
     for ii in tmp1:
@@ -63,8 +66,8 @@ def inference(img, model, config, c, s):
     return post_process(det, mat_t, 'valid', c, s, res)
 
 
-def do_inference(img, model, c, s):
-    ans = inference(img, model, c, s)
+def do_inference(img, tmp1, tmp2, c, s):
+    ans = inference(img, tmp1, tmp2, c, s)
     if len(ans) > 0:
         ans = ans[:, :, :3]
     return {'keypoints': ans}
