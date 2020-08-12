@@ -49,14 +49,16 @@ def inference(img, model, config, c, s):
 
     tmp1 = array2dict(model(inp))  # inp: [batch_size, channel(3), size, size]
     tmp2 = array2dict(model(torch.flip(inp,[-2])))
-    print('inp', inp)
-    print('inpi', torch.flip(inp, [-2]))
+    #print('inp', inp)
+    #print('inpi', torch.flip(inp, [-2]))
     # tmp1 = array2dict(tmp1)
     # tmp2 = array2dict(tmp2)
 
     tmp = {}
+    tmp1['det'] = tmp1['det'].cpu().numpy()
+    tmp2['det'] = tmp2['det'].cpu().numpy()
     for ii in tmp1:
-        tmp[ii] = np.concatenate((tmp1[ii].cpu(), tmp2[ii].cpu()), axis=0)
+        tmp[ii] = np.concatenate((tmp1[ii], tmp2[ii]), axis=0)
     det = tmp['det'][0, -1] + tmp['det'][1, -1, :, :, ::-1][ds.flipped_parts['mpii']]
     if det is None:
         return [], []
