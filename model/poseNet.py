@@ -121,11 +121,8 @@ class poseNet(LightningModule):
         batch_imgs_inv_list = []
         for i in range(self.hparams.batch_size):
             img = batch_imgs[i].cpu().numpy()
-            img_inv = img[:,::-1]
-            img_inv2 = img[:,:,::-1]
-            if(img_inv==img_inv2):
-                exit(0)
-            batch_imgs_inv_list.append(torch.from_numpy(img_inv))
+            img_inv = img[:,::-1].copy()
+            batch_imgs_inv_list.append(torch.from_numpy(img_inv).cuda())
         batch_imgs_inv = torch.stack(batch_imgs_inv_list,dim=0)
         combined_heatmap_preds_inv = self(batch_imgs_inv)
         for i in range(self.hparams.batch_size):
@@ -138,7 +135,7 @@ class poseNet(LightningModule):
             model = self
             tmp1 = combined_heatmap_preds[i]
             tmp2 = combined_heatmap_preds_inv[i]
-            pred = do_inference(img, tmp1, tmp2, center, scale)
+            pred = do_inference(img, tmp1, tmp2, self.this_config,center, scale)
 
             self.all_gt_kps.append(gt_kps)
             self.all_preds.append(pred)

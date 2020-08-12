@@ -66,8 +66,8 @@ def inference(img, tmp1, tmp2, config, c, s):
     return post_process(det, mat_t, 'valid', c, s, res)
 
 
-def do_inference(img, tmp1, tmp2, c, s):
-    ans = inference(img, tmp1, tmp2, c, s)
+def do_inference(img, tmp1, tmp2, config, c, s):
+    ans = inference(img, tmp1, tmp2, config, c, s)
     if len(ans) > 0:
         ans = ans[:, :, :3]
     return {'keypoints': ans}
