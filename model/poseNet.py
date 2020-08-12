@@ -120,7 +120,7 @@ class poseNet(LightningModule):
         combined_heatmap_preds = self(batch_imgs)
         batch_imgs_inv_list = []
         for i in range(self.hparams.batch_size):
-            img = batch_imgs[i].numpy()
+            img = batch_imgs[i].cpu().numpy()
             img_inv = img[:,::-1]
             img_inv2 = img[:,:,::-1]
             if(img_inv==img_inv2):
