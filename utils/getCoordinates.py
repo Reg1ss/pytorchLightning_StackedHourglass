@@ -22,8 +22,9 @@ class HeatmapParser:
         return det
 
     def calc(self, det):
-        # with torch.no_grad():
-        #     det = torch.Tensor(det)
+        #input is a np.ndarray, need to convert to tensor
+        with torch.no_grad():
+            det = torch.Tensor(det)
 
         det = self.nms(det)
         h = det.size()[2]

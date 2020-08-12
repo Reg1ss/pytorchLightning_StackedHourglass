@@ -5,8 +5,9 @@ from pytorch_lightning.callbacks import EarlyStopping
 
 model = poseNet.poseNet()
 net = model.load_from_checkpoint('/home/reg1s/PycharmProjects/pytorchLightning_StackedHourglass'
-                                                     '/checkpoint/test_hg1_02/lightning_logs/version_3/checkpoints/epoch=10.ckpt')
+                                                     '/checkpoint/test_hg1_01/lightning_logs/version_0/checkpoints/epoch=171.ckpt',
+                                 hparams_file='/home/reg1s/PycharmProjects/pytorchLightning_StackedHourglass'
+                                                     '/checkpoint/test_hg1_01/lightning_logs/version_0/hparams.yaml',)
 
-early_stopping = EarlyStopping('val_loss')
-trainer = Trainer(gpus=1, default_root_dir='./checkpoint/test_hg1_02', early_stop_callback=early_stopping, log_gpu_memory=True)
+trainer = Trainer(fast_dev_run=1, gpus=1)
 trainer.test(net)

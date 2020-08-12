@@ -112,33 +112,31 @@ class poseNet(LightningModule):
         val_result = pl.EvalResult(early_stop_on=val_loss, checkpoint_on=val_loss)
         val_result.log('val_loss', val_loss, on_step=False, on_epoch=True, prog_bar=True)
         
-        val_result.log('acc')
+        #val_result.log('acc')
         return val_result
 
     def test_step(self, batch, batch_idx):
         batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch    #[batch_size, size, size, channel]
         combined_heatmap_preds = self(batch_imgs)
-        # batch_imgs_inv_list = []
-        # for i in range(self.hparams.batch_size):
-        #     img = batch_imgs[i].cpu().numpy()
-        #     img_inv = img[:,::-1].copy()
-        #     batch_imgs_inv_list.append(torch.from_numpy(img_inv).cuda())
-        # batch_imgs_inv = torch.stack(batch_imgs_inv_list,dim=0)
-        # combined_heatmap_preds_inv = self(batch_imgs_inv)
-        for i in range(self.hparams.batch_size):
-            img = batch_imgs[i]
+        batch_size = self.hparams.batch_size
+        for i in range(batch_size):
+            if (batch_idx)*batch_size+i>=self.this_config['num_eval']:
+                break
+            img = batch_imgs[i,:,:,:]
+            print(batch_imgs.shape)
+            print(img.shape)
+
+            img = img.view([1, self.this_config['input_res'], self.this_config['input_res'], 3])
             gt_kps = batch_gt_kps[i]
             center = batch_center[i]
             scale = batch_scale[i]
             norm = batch_norm[i]
 
-            # tmp1 = combined_heatmap_preds[i]
-            # tmp2 = combined_heatmap_preds_inv[i]
             pred = do_inference(img, self, self.this_config, center, scale)
 
-            self.all_gt_kps.append(gt_kps)
+            self.all_gt_kps.append(gt_kps.cpu().numpy())
             self.all_preds.append(pred)
-            self.all_norm.append(norm)
+            self.all_norm.append(norm.cpu().numpy())
 
 
         test_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
@@ -160,12 +158,13 @@ class poseNet(LightningModule):
     '''
 
     def test_epoch_end(self, outputs):
-        # avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
-        # tensorboard_logs = {'test_loss': avg_loss}
-        # return {'avg_test_loss': avg_loss, 'log': tensorboard_logs}
+        avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
+        tensorboard_logs = {'test_loss': avg_loss}
 
-        mpii_eval(self.all_preds, self.all_gt_kps, self.all_norm, self.this_config['train_num_eval'])
-        return 0
+        mpii_eval(self.all_preds, self.all_gt_kps, self.all_norm, self.this_config['threshold'])
+
+        #return {}
+        return {'avg_test_loss': avg_loss, 'log': tensorboard_logs}
 
     def configure_optimizers(self):
         return [torch.optim.Adam(self.parameters(), lr=self.this_config['lr'])]

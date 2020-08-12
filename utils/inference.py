@@ -44,19 +44,19 @@ def inference(img, model, config, c, s):
 
     def array2dict(tmp):
         return {
-            'det': tmp[0][:, :, :16],  # [batch_size, nstack, n_joints, size, size]
+            'det': tmp,  # [batch_size, nstack, n_joints, size, size]
         }
 
-    tmp1 = array2dict(model([inp]))  # inp: [batch_size, channel(3), size, size]
-    tmp2 = array2dict(model([inp[:, ::-1]]))
-
+    tmp1 = array2dict(model(inp))  # inp: [batch_size, channel(3), size, size]
+    tmp2 = array2dict(model(torch.flip(inp,[1])))
+    print('inp', inp)
+    print('inpi', torch.flip(inp, [-2]))
     # tmp1 = array2dict(tmp1)
     # tmp2 = array2dict(tmp2)
 
     tmp = {}
     for ii in tmp1:
-        tmp[ii] = np.concatenate((tmp1[ii], tmp2[ii]), axis=0)
-
+        tmp[ii] = np.concatenate((tmp1[ii].cpu(), tmp2[ii].cpu()), axis=0)
     det = tmp['det'][0, -1] + tmp['det'][1, -1, :, :, ::-1][ds.flipped_parts['mpii']]
     if det is None:
         return [], []
@@ -70,10 +70,10 @@ def do_inference(img, model, config, c, s):
     ans = inference(img, model, config, c, s)
     if len(ans) > 0:
         ans = ans[:, :, :3]
-    return {'keypoints': ans}
+    return [{'keypoints': ans}]
 
 
-def mpii_eval(preds, gt_kps, normalizing, num_train, bound=0.5):
+def mpii_eval(preds, gt_kps, normalizing, bound=0.5):
     """
     Use PCK with threshold of .5 of normalized distance (presumably head size)
     """
@@ -91,7 +91,7 @@ def mpii_eval(preds, gt_kps, normalizing, num_train, bound=0.5):
     correct_train = copy.deepcopy(correct)
     count_train = copy.deepcopy(correct)
     idx = 0
-    for p, g, normalize in zip(preds, gt_kps, normalizing):
+    for p, g, norm in zip(preds, gt_kps, normalizing):
         for j in range(g.shape[1]):
             vis = 'visible'
             if g[0, j, 0] == 0:  ## not in picture!
@@ -118,29 +118,22 @@ def mpii_eval(preds, gt_kps, normalizing, num_train, bound=0.5):
             elif j == 12 or j == 13:
                 joint = 'shoulder'
 
-            if idx >= num_train:
-                count['all']['total'] += 1
-                count['all'][joint] += 1
-                count[vis]['total'] += 1
-                count[vis][joint] += 1
-            else:
-                count_train['all']['total'] += 1
-                count_train['all'][joint] += 1
-                count_train[vis]['total'] += 1
-                count_train[vis][joint] += 1
-            error = np.linalg.norm(p[0]['keypoints'][j, :2] - g[0, j, :2]) / normalize
-            if idx >= num_train:
-                if bound > error:
-                    correct['all']['total'] += 1
-                    correct['all'][joint] += 1
-                    correct[vis]['total'] += 1
-                    correct[vis][joint] += 1
-            else:
-                if bound > error:
-                    correct_train['all']['total'] += 1
-                    correct_train['all'][joint] += 1
-                    correct_train[vis]['total'] += 1
-                    correct_train[vis][joint] += 1
+
+            count['all']['total'] += 1
+            count['all'][joint] += 1
+            count[vis]['total'] += 1
+            count[vis][joint] += 1
+
+            #compute distance
+            error = np.linalg.norm(p[0]['keypoints'][0, j, :2] - g[0, j, :2]) / norm
+            print('p ', p[0])
+            print('g ', g)
+
+            if bound > error:
+                correct['all']['total'] += 1
+                correct['all'][joint] += 1
+                correct[vis]['total'] += 1
+                correct[vis][joint] += 1
         idx += 1
 
     ## breakdown by validation set / training set
@@ -149,7 +142,7 @@ def mpii_eval(preds, gt_kps, normalizing, num_train, bound=0.5):
         for key in correct[k]:
             print('Val PCK @,', bound, ',', key, ':', round(correct[k][key] / max(count[k][key], 1), 3), ', count:',
                   count[k][key])
-            print('Tra PCK @,', bound, ',', key, ':', round(correct_train[k][key] / max(count_train[k][key], 1), 3),
-                  ', count:', count_train[k][key])
+            #print('Tra PCK @,', bound, ',', key, ':', round(correct_train[k][key] / max(count_train[k][key], 1), 3),
+            #     ', count:', count_train[k][key])
         print('\n')
 
