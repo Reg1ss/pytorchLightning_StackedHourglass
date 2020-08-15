@@ -1,4 +1,4 @@
-
+import cv2
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -13,6 +13,8 @@ from loss.calc_loss import Calc_loss
 from data import MPII_dataLoader, MPII_test_dataLoader
 from model import config
 from utils.inference import do_inference, mpii_eval
+
+from model import test_save_model
 
 
 class poseNet(LightningModule):
@@ -42,6 +44,7 @@ class poseNet(LightningModule):
             )for num in range(self.nstack)
         ])
 
+        '''
         self.afterHg = nn.ModuleList([
             nn.Sequential(
                 Residual(inp_dim, inp_dim),
@@ -60,6 +63,19 @@ class poseNet(LightningModule):
         self.merge_pred_heatmaps = nn.ModuleList([
             Conv(oup_dim, inp_dim, 1, bn=False, relu=False) for num in range(self.nstack-1)
         ])
+        '''
+
+        self.features = nn.ModuleList([
+                                          nn.Sequential(
+                                              Residual(inp_dim, inp_dim),
+                                              Conv(inp_dim, inp_dim, 1, bn=True, relu=True)
+                                          ) for i in range(self.nstack)])
+        from model.layers import Merge
+        self.outs = nn.ModuleList([Conv(inp_dim, oup_dim, 1, relu=False, bn=False) for i in range(self.nstack)])
+        self.merge_features = nn.ModuleList([Merge(inp_dim, inp_dim) for i in range(self.nstack - 1)])
+        self.merge_preds = nn.ModuleList([Merge(oup_dim, inp_dim) for i in range(self.nstack - 1)])
+
+
 
         self.calc_loss = Calc_loss(self.nstack)
 
@@ -71,6 +87,7 @@ class poseNet(LightningModule):
     def forward(self, imgs):
         x = imgs.permute(0, 3, 1, 2) ##swap order [batch_size,channel,size,size]
         input = self.pre(x)
+        '''
         all_pred_heatmaps = []  # nstack*16*size*size
         for i in range(self.nstack):
             hg = self.hgs[i](input)
@@ -81,9 +98,22 @@ class poseNet(LightningModule):
                 input += self.module_outs[i](afterHg) + self.merge_pred_heatmaps[i](pred_heatmaps)
 
         return torch.stack(all_pred_heatmaps, dim=1) #lists are stacked to become a tensor; dim=0:所有个tensor直接拼起来；dim=1，所有tensor第一个维度拼起来作为第一个维度...
+        '''
+        combined_hm_preds = []
+        for i in range(self.nstack):
+            hg = self.hgs[i](input)
+            feature = self.features[i](hg)
+            preds = self.outs[i](feature)  # [batch_size, njoints, out_size, out_size]
+            # print('pred:',preds.shape)
+            combined_hm_preds.append(preds)
+            if i < self.nstack - 1:
+                x = x + self.merge_preds[i](preds) + self.merge_features[i](feature)
+        return torch.stack(combined_hm_preds, 1)
+
 
     def training_step(self, batch, batch_idx):
         """
+        step == batch
         Lightning calls this inside the training loop with the data from the training dataloader
         passed in as `batch`.
         """
@@ -93,7 +123,7 @@ class poseNet(LightningModule):
         #calculate loss
         train_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
         train_result = pl.TrainResult(minimize=train_loss) #minimize: what metrics to do bp learning
-        train_result.log('train_loss', train_loss, on_step=False, on_epoch=True, prog_bar=True)
+        train_result.log('train_loss', train_loss, on_step=True, on_epoch=True, prog_bar=True)
         return train_result
 
 
@@ -110,7 +140,7 @@ class poseNet(LightningModule):
 
         val_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
         val_result = pl.EvalResult(early_stop_on=val_loss, checkpoint_on=val_loss)
-        val_result.log('val_loss', val_loss, on_step=False, on_epoch=True, prog_bar=True)
+        val_result.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True)
         
         #val_result.log('acc')
         return val_result
@@ -119,13 +149,13 @@ class poseNet(LightningModule):
         batch_imgs, batch_gt_kps, heatmaps_gt, batch_center, batch_scale, batch_norm = batch    #[batch_size, size, size, channel]
         combined_heatmap_preds = self(batch_imgs)
         batch_size = self.hparams.batch_size
+        #print(batch_imgs)
         for i in range(batch_size):
             if (batch_idx)*batch_size+i>=self.this_config['num_eval']:
                 break
-            img = batch_imgs[i,:,:,:]
-            print(batch_imgs.shape)
-            print(img.shape)
-
+            img = batch_imgs[i,:,:,:]   #[size,size,channel]
+            #cv2.imshow('img',img.cpu().numpy())
+            #cv2.waitKey(0)
             img = img.view([1, self.this_config['input_res'], self.this_config['input_res'], 3])
             gt_kps = batch_gt_kps[i]
             center = batch_center[i]
@@ -141,8 +171,19 @@ class poseNet(LightningModule):
 
         test_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
 
-        tensorboard_logs = {'train_loss': test_loss}
+        tensorboard_logs = {'test_loss': test_loss}
         return {'test_loss': test_loss, 'test_log': tensorboard_logs}
+
+    def training_epoch_end(self, outputs):
+        dict = {
+            'state_dict': self.state_dict(),
+            'optimizer' : self.optimizer.state_dict(),
+            'epoch': 1
+        }
+        test_save_model.save_checkpoint(dict ,False, self.this_config['checkpoint_path']+'test01/checkpoint.pt')
+        print('=> save checkpoint')
+        return {}
+
 
     '''
     #If don't use EvalResult 
@@ -167,7 +208,8 @@ class poseNet(LightningModule):
         return {'avg_test_loss': avg_loss, 'log': tensorboard_logs}
 
     def configure_optimizers(self):
-        return [torch.optim.Adam(self.parameters(), lr=self.this_config['lr'])]
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.this_config['lr'])
+        return [self.optimizer]
 
 
     def prepare_data(self):

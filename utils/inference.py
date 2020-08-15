@@ -14,12 +14,11 @@ parser = HeatmapParser()
 
 def post_process(det, mat_, trainval, c=None, s=None, resolution=None):
     mat = np.linalg.pinv(np.array(mat_).tolist() + [[0, 0, 1]])[:2]
-    res = det.shape[1:3]
     cropped_preds = parser.parse(np.float32([det]))[0]
-
+    #print('before ', cropped_preds)
     if len(cropped_preds) > 0:
         cropped_preds[:, :, :2] = data.imgProcessing.kpt_affine(cropped_preds[:, :, :2] * 4, mat)
-
+    #print('after', cropped_preds)
     preds = np.copy(cropped_preds)
     # for inverting predictions from input res on cropped to original image
     if trainval != 'cropped':
@@ -33,13 +32,12 @@ def inference(img, model, config, c, s):
     forward pass at test time
     calls post_process to post process results
     """
-
-    height, width = img.shape[0:2]
+    height, width = img.shape[1:3]
     center = (width / 2, height / 2)
     scale = max(height, width) / 200
     res = (config['input_res'], config['input_res'])
 
-    mat_t =data.imgProcessing.get_transform(center, scale, res)[:2]
+    mat_t = data.imgProcessing.get_transform(center, scale, res)[:2]
     inp = img / 255
 
     def array2dict(tmp):
@@ -128,8 +126,8 @@ def mpii_eval(preds, gt_kps, normalizing, bound=0.5):
 
             #compute distance
             error = np.linalg.norm(p[0]['keypoints'][0, j, :2] - g[0, j, :2]) / norm
-            print('p ', p[0])
-            print('g ', g)
+            #print('p ', p[0])
+            #print('g ', g)
 
             if bound > error:
                 correct['all']['total'] += 1
@@ -142,7 +140,7 @@ def mpii_eval(preds, gt_kps, normalizing, bound=0.5):
     for k in correct:
         print(k, ':')
         for key in correct[k]:
-            print('Val PCK @,', bound, ',', key, ':', round(correct[k][key] / max(count[k][key], 1), 3), ', count:',
+            print('Val PCK @,', bound, ',', key, ':', round(correct[k][key] / max(count[k][key], 1), 4), ', count:',
                   count[k][key])
             #print('Tra PCK @,', bound, ',', key, ':', round(correct_train[k][key] / max(count_train[k][key], 1), 3),
             #     ', count:', count_train[k][key])

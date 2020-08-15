@@ -5,8 +5,8 @@ import os
 import time
 
 
-annot_dir = '/home/reg1s/PycharmProjects/pytorch_stacked_hourglass/data/MPII/annot'
-img_dir = '/home/reg1s/PycharmProjects/pytorch_stacked_hourglass/data/MPII/images'
+annot_dir = '/home/reg1s/PycharmProjects/pytorch_stacked_hourglass_modified/data/MPII/annot'
+img_dir = '/home/reg1s/PycharmProjects/pytorch_stacked_hourglass_modified/data/MPII/images'
 
 assert os.path.exists(img_dir)
 mpii, num_examples_train, num_examples_val = None, None, None

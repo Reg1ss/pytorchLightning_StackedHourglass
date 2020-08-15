@@ -25,15 +25,14 @@ class HeatmapParser:
         #input is a np.ndarray, need to convert to tensor
         with torch.no_grad():
             det = torch.Tensor(det)
-
         det = self.nms(det)
         h = det.size()[2]
         w = det.size()[3]
         det = det.view(det.size()[0], det.size()[1], -1)    #reshape
         val_k, ind = det.topk(1, dim=2) #return top k value [k, dim] return: value, index
-
         x = ind % w #mod
         y = (ind / h).long()
+        #print('xy ', x, y)
         ind_k = torch.stack((x, y), dim=3)
         ans = {'loc_k': ind_k, 'val_k': val_k}
         return {key:ans[key].cpu().data.numpy() for key in ans}
