@@ -54,7 +54,7 @@ class MPIIDataLoader(torch.utils.data.Dataset):
 
     #must override for a torch.utils.data.Dataset
     def __getitem__(self, idx):
-        return self.loadImageAndGt(self.index[idx % len(self.index)])    #in case index exceeds
+        return self.loadImageAndGt(self.index[idx % len(self.index)])    #get the real idx for train or validation set
 
     #return orginal img & ground truth heatmaps
     def loadImageAndGt(self, idx):
@@ -78,6 +78,7 @@ class MPIIDataLoader(torch.utils.data.Dataset):
 
         ## augmentation -- to be done to cropped image
         height, width = cropped.shape[0:2]
+
         center = np.array((width / 2, height / 2))
         scale = max(height, width) / 200
 
@@ -110,7 +111,9 @@ class MPIIDataLoader(torch.utils.data.Dataset):
 
         #generate heatmaps
         heatmaps = self.generateHeatmap(keypoints)
-
+        # check
+        # print('kp', kps)
+        # print('htm ', np.sum(heatmaps))
         return inp.astype(np.float32), heatmaps.astype(np.float32)
 
     def preprocess(self, data):
