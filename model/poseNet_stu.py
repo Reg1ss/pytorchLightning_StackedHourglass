@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from model.layers import Conv, Hourglass, Pool, Residual
 from loss.calc_loss import Calc_loss
 from data import MPII_dataLoader, MPII_test_dataLoader
-from model import config
+from model import config_stu
 from utils.inference import do_inference, mpii_eval
 
 from model import test_save_model
@@ -20,7 +20,7 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
 
         self.net_tch = net_tch
         self.hparams.num_workers = 8  # workers number
-        self.this_config = config.__config__
+        self.this_config = config_stu.__config__
         inp_dim = self.this_config['inp_dim']
         oup_dim = self.this_config['oup_dim']
         self.hparams.batch_size = self.this_config['batch_size']
@@ -36,7 +36,7 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
 
         # it has to use ModuleList, because different module has different parameters
         self.hgs = nn.ModuleList([
-                                     nn.Sequential(
+                                    nn.Sequential(
                                          Hourglass(4, inp_dim, bn)
                                      ) for num in range(self.nstack)
                                      ])
@@ -122,7 +122,7 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
         combined_heatmap_preds = self(batch_imgs)  # [batch_size, nstack, n_joints, size, size]
         #get prediction from teacher network
         combined_heatmap_preds_tch = self.net_tch(batch_imgs)
-        final_heatmap_preds_tch = combined_heatmap_preds_tch[:,self.nstack-1]
+        last_heatmap_preds_tch = combined_heatmap_preds_tch[:,self.nstack-1]
         # debug pl.core.LightningModule is not correct
         # print(combined_heatmap_preds.shape)
         # print(torch.sum(combined_heatmap_preds))
@@ -130,7 +130,7 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
         # print(self.state_dict()['pre.0.conv.weight'].grad)
         # calculate loss
         gt_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
-        tch_loss = self.calc_loss(combined_heatmap_preds, final_heatmap_preds_tch)
+        tch_loss = self.calc_loss(combined_heatmap_preds, last_heatmap_preds_tch)
         train_loss = self.this_config['lambda'] * gt_loss + (1 - self.this_config['lambda']) * tch_loss
         train_result = pl.TrainResult(minimize=train_loss)  # minimize: what metrics to do bp learning
         train_result.log('train_loss', train_loss, on_step=True, on_epoch=True, prog_bar=True)
@@ -186,7 +186,7 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
             'optimizer': self.optimizer.state_dict(),
             'epoch': 1
         }
-        test_save_model.save_checkpoint(dict, False, self.this_config['checkpoint_path'] + 'test01/checkpoint.pt')
+        test_save_model.save_checkpoint(dict, False, self.this_config['checkpoint_path'] + '/checkpoint.pt')
         print('=> save checkpoint')
         return {}
 
@@ -213,7 +213,7 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                           lr=self.this_config['lr'])
-        scheduler = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=0.01, patience=2,
+        scheduler = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=self.this_config['lr_decay'], patience=2,
                                                                              verbose=True),
                      'interval': 'epoch',
                      'monitor': 'val_checkpoint_on',
