@@ -10,5 +10,7 @@ __config__ = {
     'lr': 1e-3,
     'decay_iters': 100000,
     'threshold':0.5,
-    'checkpoint_path':'./checkpoint/run_h1_pth_02/'
+    'lr_decay': 0.01,
+    'lambda':0.5,
+    'checkpoint_path':'./checkpoint/run_hg1_pth_03/'
 }
