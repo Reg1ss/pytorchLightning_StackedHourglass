@@ -4,10 +4,9 @@ __config__ = {
     'oup_dim': 16,
     'num_parts': 16,
     'num_eval': 2958, ## number of val examples used. entire set is 2958
-    'batch_size': 12,
+    'batch_size': 32,
     'input_res': 256,   #256
     'output_res': 64,   #64
-    'lr': 1e-3,
-    'decay_iters': 100000,
+    'lr': 1e-4,
     'threshold':0.5
 }

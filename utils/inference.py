@@ -57,7 +57,7 @@ def inference(img, model, config, c, s):
     tmp2['det'] = tmp2['det'].cpu().numpy()
     for ii in tmp1:
         tmp[ii] = np.concatenate((tmp1[ii], tmp2[ii]), axis=0)
-    det = tmp['det'][0, -1] + tmp['det'][1, -1, :, :, ::-1][ds.flipped_parts['mpii']]
+    det = tmp['det'][0, -1] + tmp['det'][1, -1, :, :, ::-1][ds.flipped_parts['mpii']]   #second -1 is the last prediction of the network
     if det is None:
         return [], []
     det = det / 2

@@ -3,6 +3,7 @@ from pytorch_lightning import Trainer
 from model import poseNet_tch,poseNet_stu
 from pytorch_lightning.callbacks import EarlyStopping
 
+'''
 #load tch net
 print("=> loading teacher network")
 checkpoint = torch.load('./checkpoint/run_tch/checkpoint.pt')
@@ -14,11 +15,13 @@ for k, v in checkpoint['state_dict'].items():
     name = k[13:]   #delete 'model.module.'
     new_state_dict[name] = v
 net_tch.load_state_dict(new_state_dict)
+'''
 
 #train stu net
-net_stu = poseNet_stu.poseNet(net_tch)
-early_stopping = EarlyStopping('val_loss',patience=3)
-trainer = Trainer(gpus=1, default_root_dir='./checkpoint/run_KD_01',
+#net_stu = poseNet_stu.poseNet()
+net_stu = poseNet_stu.poseNet()
+early_stopping = EarlyStopping('val_loss',patience=5)
+trainer = Trainer( gpus=1, default_root_dir='./checkpoint/run_KD_0.7_01',
                   early_stop_callback=early_stopping, log_gpu_memory=True)
 trainer.fit(net_stu)    #tensorboard --logdir lightning_logs/
 

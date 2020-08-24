@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -6,8 +7,8 @@ import pytorch_lightning as pl
 
 from model.layers import Conv, Hourglass, Pool, Residual
 from loss.calc_loss import Calc_loss
-from data import MPII_dataLoader, MPII_test_dataLoader
-from model import config_stu
+from data import MPII_dataLoader,MPII_test_dataLoader, MPII_stu_dataLoader
+from model import config_stu, config_tch
 from utils.inference import do_inference, mpii_eval
 
 from model import test_save_model
@@ -15,16 +16,18 @@ from model import test_save_model
 
 class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
 
-    def __init__(self, net_tch, bn=False, **kwargs):
+    def __init__(self, bn=False, **kwargs):
         super(poseNet, self).__init__()
 
-        self.net_tch = net_tch
+        #self.net_tch = net_tch
         self.hparams.num_workers = 8  # workers number
         self.this_config = config_stu.__config__
+        self.this_config_tch = config_tch.__config__
         inp_dim = self.this_config['inp_dim']
         oup_dim = self.this_config['oup_dim']
         self.hparams.batch_size = self.this_config['batch_size']
         self.nstack = self.this_config['nstack']
+        self.nstack_tch = self.this_config_tch['nstack']
         self.threshold = self.this_config['threshold']
         self.pre = nn.Sequential(
             Conv(3, 64, 7, 2, bn=True, relu=True),  # res: 128*128 if input_res=256
@@ -112,25 +115,23 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
         passed in as `batch`.
         """
         # forward pass
-        batch_imgs, heatmaps_gt = batch  # [batch_size, channel(3), size, size] [batch_size, n_joints, size, size]
-
-        # visiualization
-        # cv2.imshow('img',batch_imgs[0].cpu().numpy())
-        # cv2.waitKey(0)
+        batch_imgs, heatmaps_gt, last_heatmap_preds_tch = batch  # [batch_size, channel(3), size, size] [batch_size, n_joints, size, size]
+        #batch_imgs, heatmaps_gt = batch
 
         # get prediction
         combined_heatmap_preds = self(batch_imgs)  # [batch_size, nstack, n_joints, size, size]
+
         #get prediction from teacher network
-        combined_heatmap_preds_tch = self.net_tch(batch_imgs)
-        last_heatmap_preds_tch = combined_heatmap_preds_tch[:,self.nstack-1]
-        # debug pl.core.LightningModule is not correct
-        # print(combined_heatmap_preds.shape)
-        # print(torch.sum(combined_heatmap_preds))
-        # print(self.state_dict()['pre.0.conv.weight'])
-        # print(self.state_dict()['pre.0.conv.weight'].grad)
+        #combined_heatmap_preds_tch = self.net_tch(batch_imgs)
+        #last_heatmap_preds_tch = combined_heatmap_preds_tch[:,self.nstack_tch-1]
+        #print('gt ', torch.sum(heatmaps_gt), ' tch ', torch.sum(last_heatmap_preds_tch))
+        #print('pre ',torch.sum(combined_heatmap_preds))
+
         # calculate loss
         gt_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
         tch_loss = self.calc_loss(combined_heatmap_preds, last_heatmap_preds_tch)
+
+        #get total loss
         train_loss = self.this_config['lambda'] * gt_loss + (1 - self.this_config['lambda']) * tch_loss
         train_result = pl.TrainResult(minimize=train_loss)  # minimize: what metrics to do bp learning
         train_result.log('train_loss', train_loss, on_step=True, on_epoch=True, prog_bar=True)
@@ -142,16 +143,25 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
         Lightning calls this inside the validation loop with the data from the validation dataloader
         passed in as `batch`.
         """
-        batch_imgs, heatmaps_gt = batch
+        batch_imgs, heatmaps_gt, last_heatmap_preds_tch = batch
+        #batch_imgs, heatmaps_gt = batch
+
+        # get prediction
         combined_heatmap_preds = self(batch_imgs)
 
-        # self.on_save_checkpoint()
+        # get prediction from teacher network
+        #combined_heatmap_preds_tch = self.net_tch(batch_imgs)
+        #last_heatmap_preds_tch = combined_heatmap_preds_tch[:, self.nstack_tch - 1]
 
-        val_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
-        val_result = pl.EvalResult(early_stop_on=val_loss, checkpoint_on=val_loss)
-        val_result.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True)
+        gt_loss = self.calc_loss(combined_heatmap_preds, heatmaps_gt)
+        tch_loss = self.calc_loss(combined_heatmap_preds, last_heatmap_preds_tch)
+        # get total loss
+        val_loss = self.this_config['lambda'] * gt_loss + (1 - self.this_config['lambda']) * tch_loss
+        #val_result = pl.EvalResult(early_stop_on=val_loss, checkpoint_on=val_loss)
+        #val_result.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True)
+        val_result = pl.EvalResult(early_stop_on=gt_loss, checkpoint_on=gt_loss)
+        val_result.log('val_loss', gt_loss, on_step=True, on_epoch=True, prog_bar=True)
 
-        #        val_result.log('acc')
         return val_result
         # return {'val_loss':val_loss}
 
@@ -213,8 +223,8 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                           lr=self.this_config['lr'])
-        scheduler = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=self.this_config['lr_decay'], patience=2,
-                                                                             verbose=True),
+        scheduler = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=self.this_config['lr_decay'],
+                                                                             patience=3, verbose=True),
                      'interval': 'epoch',
                      'monitor': 'val_checkpoint_on',
                      'frequency': 1
@@ -227,14 +237,15 @@ class poseNet(pl.LightningModule):  # not pl.core.LightningModule!!!
 
     def setup(self, stage):
         # split train and valid dataset
-        self.mpii_train, self.mpii_valid = MPII_dataLoader.init(self.this_config)
+        self.mpii_train, self.mpii_valid = MPII_stu_dataLoader.init(self.this_config)
         self.mpii_test = MPII_test_dataLoader.init(self.this_config)
 
+
     def train_dataloader(self):
-        return DataLoader(self.mpii_train, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_train, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.mpii_valid, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_valid, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=False)
 
     def test_dataloader(self):
-        return DataLoader(self.mpii_test, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_test, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=False)

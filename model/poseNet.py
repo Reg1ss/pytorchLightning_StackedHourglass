@@ -230,12 +230,11 @@ class poseNet(pl.LightningModule):      #not pl.core.LightningModule!!!
         self.mpii_train, self.mpii_valid = MPII_dataLoader.init(self.this_config)
         self.mpii_test = MPII_test_dataLoader.init(self.this_config)
 
-
     def train_dataloader(self):
-        return DataLoader(self.mpii_train, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_train, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.mpii_valid, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_valid, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=False)
 
     def test_dataloader(self):
-        return DataLoader(self.mpii_test, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
+        return DataLoader(self.mpii_test, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=False)
